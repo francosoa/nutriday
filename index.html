@@ -187,6 +187,16 @@
     </div>
   </div>
 
+  <!-- Atividades e Gasto Calórico -->
+  <div class="training-card" id="activity-card">
+    <label>Atividades e Gasto Calórico</label>
+    <div class="livre-grid">
+      <div class="full"><label>Exercícios do dia</label><input type="text" id="daily-exercises" placeholder="Ex: Treino de CrossFit (BMU), corrida..."></div>
+      <div class="full"><label>Calorias gastas (kcal)</label><input type="number" id="calories-burned" placeholder="Ex: 400"></div>
+    </div>
+    <button class="qbtn" id="save-activity" style="margin-top:10px; width:100%; font-weight:500;">Salvar Atividades</button>
+  </div>
+
   <div class="progress-card">
     <div class="cal-row">
       <div><span class="num" id="kcal-consumed">0</span> <span class="of">/ <span id="kcal-goal">2000</span> kcal</span></div>
@@ -209,6 +219,20 @@
         <button class="qbtn" id="view-chart">gráfico</button>
       </div>
     </div>
+    
+    <!-- Cálculo de Composição Corporal (Massa Magra / Gordura) -->
+    <div class="habit">
+      <div class="habit-top"><div class="htitle">💪 Composição Corporal</div><div class="hval" id="lean-mass-display">não calculado</div></div>
+      <div class="livre-grid" style="margin-bottom:8px;">
+        <div><label>Idade (anos)</label><input type="number" id="calc-idade" placeholder="Ex: 30"></div>
+        <div><label>Altura (cm)</label><input type="number" id="calc-altura" placeholder="Ex: 175"></div>
+        <div><label>Pescoço (cm)</label><input type="number" id="calc-pescoco" placeholder="Ex: 38"></div>
+        <div><label>Cintura (cm)</label><input type="number" id="calc-cintura" placeholder="Ex: 82"></div>
+      </div>
+      <button class="btn-primary" id="calc-lean-mass" style="padding: 10px; font-size: 13.5px; margin-bottom: 5px;">Calcular Gordura e Massa Magra</button>
+      <div class="empty-hint" style="text-align:center; padding-top:0; color:var(--ink-soft);" id="bf-result-display">(Utiliza o peso registrado no card acima)</div>
+    </div>
+
     <div class="habit">
       <div class="habit-top"><div class="htitle">💧 Água</div><div class="hval"><b id="water-val">0</b>/<span id="water-goal">2000</span> ml</div></div>
       <div class="track"><div class="fill water" id="water-bar" style="width:0%"></div></div>
@@ -233,6 +257,11 @@
     </div>
   </div>
 
+  <!-- Botão Repetir Cardápio -->
+  <div class="meals-actions" style="padding: 0 18px 10px;">
+    <button class="btn-primary" id="copy-yesterday" style="background: var(--blue); font-size: 13.5px; padding: 10px; width: 100%;"><span style="margin-right: 5px;">📋</span> Repetir cardápio do dia anterior</button>
+  </div>
+  
   <div class="meals" id="meals-container"></div>
 
 </div>
@@ -289,6 +318,9 @@
       </div>
       <div class="status-msg" style="text-align:left;padding:0 0 14px;">As metas de calorias e macros agora são definidas pelo treino do dia, logo no topo da tela.</div>
       <button class="btn-primary" id="save-goals">Salvar metas</button>
+      
+      <!-- Botão Download de Dados -->
+      <button class="btn-primary" id="download-data" style="margin-top: 10px; background: var(--purple);">Baixar todos os resultados (JSON)</button>
     </div>
   </div>
 </div>
@@ -438,7 +470,7 @@ const MEAL_TYPES = [
 /* ---------- Estado ---------- */
 let currentDate = todayISO();
 let goals = {water:2000, steps:8000, freeDefault:{calories:2000, protein:120, carbs:220, fat:65}};
-let dayData = {meals:{}, weight:null, water:0, steps:0, trainingType:'', customGoal:null};
+let dayData = {meals:{}, weight:null, water:0, steps:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
 let activeMealKey = null;
 let selectedFood = null;
 
@@ -482,13 +514,22 @@ async function saveCustomFoods(){
 }
 async function loadDay(iso){
   const raw = await storageGetRaw('day:'+iso, false);
-  dayData = raw ? JSON.parse(raw) : {meals:{}, weight:null, water:0, steps:0, trainingType:'', customGoal:null};
+  dayData = raw ? JSON.parse(raw) : {meals:{}, weight:null, water:0, steps:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
   if(!dayData.meals) dayData.meals = {};
   MEAL_TYPES.forEach(m=>{ if(!dayData.meals[m.key]) dayData.meals[m.key]=[]; });
   if(dayData.water==null) dayData.water = 0;
   if(dayData.steps==null) dayData.steps = 0;
   if(dayData.trainingType==null) dayData.trainingType = '';
   if(dayData.customGoal===undefined) dayData.customGoal = null;
+  // Campos Novos
+  if(dayData.exercises==null) dayData.exercises = '';
+  if(dayData.caloriesBurned==null) dayData.caloriesBurned = '';
+  if(dayData.idade==null) dayData.idade = '';
+  if(dayData.altura==null) dayData.altura = '';
+  if(dayData.pescoco==null) dayData.pescoco = '';
+  if(dayData.cintura==null) dayData.cintura = '';
+  if(dayData.bodyFat==null) dayData.bodyFat = '';
+  if(dayData.leanMass==null) dayData.leanMass = '';
 }
 async function saveDay(iso){
   const ok = await storageSetRaw('day:'+iso, JSON.stringify(dayData), false);
@@ -563,6 +604,24 @@ function renderHabits(){
   document.getElementById('steps-val').textContent = Math.round(dayData.steps);
   document.getElementById('steps-goal').textContent = goals.steps;
   document.getElementById('steps-bar').style.width = Math.min(100,(dayData.steps/goals.steps)*100||0)+'%';
+  
+  // Renderiza Campos de Atividade
+  document.getElementById('daily-exercises').value = dayData.exercises || '';
+  document.getElementById('calories-burned').value = dayData.caloriesBurned || '';
+  
+  // Renderiza Campos de Composição Corporal
+  document.getElementById('calc-idade').value = dayData.idade || '';
+  document.getElementById('calc-altura').value = dayData.altura || '';
+  document.getElementById('calc-pescoco').value = dayData.pescoco || '';
+  document.getElementById('calc-cintura').value = dayData.cintura || '';
+  
+  if (dayData.bodyFat && dayData.leanMass) {
+      document.getElementById('lean-mass-display').textContent = dayData.leanMass + ' kg';
+      document.getElementById('bf-result-display').textContent = 'Gordura estimada: ' + dayData.bodyFat + '%';
+  } else {
+      document.getElementById('lean-mass-display').textContent = 'não calculado';
+      document.getElementById('bf-result-display').textContent = '(Utiliza o peso registrado no card acima)';
+  }
 }
 function renderTraining(){
   document.getElementById('training-select').value = dayData.trainingType || '';
@@ -821,6 +880,111 @@ async function changeDate(delta){
   currentDate = d.toISOString().slice(0,10);
   await loadDay(currentDate); renderAll();
 }
+
+/* ---------- NOVOS EVENTOS (Atividades, Massa Magra, Repetir e Baixar) ---------- */
+document.getElementById('save-activity').addEventListener('click', async ()=>{
+  dayData.exercises = document.getElementById('daily-exercises').value;
+  dayData.caloriesBurned = document.getElementById('calories-burned').value;
+  await saveDay(currentDate);
+  setStatus('Atividades e gasto salvos.');
+});
+
+document.getElementById('calc-lean-mass').addEventListener('click', async ()=>{
+  const w = dayData.weight;
+  
+  if(!w) { 
+    alert('Por favor, registre e salve o seu peso do dia primeiro (no card acima)!'); 
+    return; 
+  }
+  
+  const idade = parseFloat(document.getElementById('calc-idade').value);
+  const altura = parseFloat(document.getElementById('calc-altura').value);
+  const pescoco = parseFloat(document.getElementById('calc-pescoco').value);
+  const cintura = parseFloat(document.getElementById('calc-cintura').value);
+  
+  if(isNaN(idade) || isNaN(altura) || isNaN(pescoco) || isNaN(cintura)) {
+    alert('Preencha idade, altura, pescoço e cintura corretamente para calcular.');
+    return;
+  }
+  
+  if(cintura <= pescoco) {
+    alert('A medida da cintura deve ser maior que a do pescoço.');
+    return;
+  }
+
+  // Fórmula da Marinha dos EUA (US Navy) para Homens
+  const logCinturaPescoco = Math.log10(cintura - pescoco);
+  const logAltura = Math.log10(altura);
+  let bf = 495 / (1.0324 - 0.19077 * logCinturaPescoco + 0.15456 * logAltura) - 450;
+  
+  // Limites de segurança da fórmula
+  if (bf < 2) bf = 2;
+  if (bf > 60) bf = 60;
+
+  // Salvando no estado do dia
+  dayData.idade = idade;
+  dayData.altura = altura;
+  dayData.pescoco = pescoco;
+  dayData.cintura = cintura;
+  dayData.bodyFat = bf.toFixed(1);
+  dayData.leanMass = (w - (w * (bf / 100))).toFixed(1);
+  
+  renderHabits();
+  await saveDay(currentDate);
+  setStatus('Composição corporal salva.');
+});
+
+document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
+  const d = new Date(currentDate+'T12:00:00'); 
+  d.setDate(d.getDate()-1);
+  const yesterdayIso = d.toISOString().slice(0,10);
+  const raw = await storageGetRaw('day:'+yesterdayIso, false);
+  
+  if(raw) {
+    const yesterdayData = JSON.parse(raw);
+    let temComida = false;
+    for(let m in yesterdayData.meals) {
+      if(yesterdayData.meals[m].length > 0) temComida = true;
+    }
+    
+    if(temComida) {
+      dayData.meals = JSON.parse(JSON.stringify(yesterdayData.meals)); // Cópia profunda
+      renderMeals(); 
+      renderProgress(); 
+      await saveDay(currentDate);
+      setStatus('Cardápio de ontem repetido com sucesso!');
+    } else {
+      alert('O dia de ontem não possuía nenhum alimento registrado para ser copiado.');
+    }
+  } else {
+    alert('Nenhum dado encontrado no dia de ontem.');
+  }
+});
+
+document.getElementById('download-data').addEventListener('click', async ()=>{
+  const allData = { 
+    metas: goals, 
+    alimentos_personalizados: customFoods, 
+    historico_dias: {} 
+  };
+  
+  const base = new Date();
+  // Varre os últimos 365 dias armazenados e puxa o que achar
+  for(let i=0; i<365; i++) {
+    const d = new Date(base); d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0,10);
+    const raw = await storageGetRaw('day:' + iso, false);
+    if(raw) {
+      allData.historico_dias[iso] = JSON.parse(raw);
+    }
+  }
+  
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData, null, 2));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href", dataStr);
+  dlAnchorElem.setAttribute("download", "nutridia_completo_resultados.json");
+  dlAnchorElem.click();
+});
 
 /* ---------- Inicialização ---------- */
 async function init(){
