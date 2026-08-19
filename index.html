@@ -194,7 +194,10 @@
       <div class="full"><label>Exercícios do dia</label><input type="text" id="daily-exercises" placeholder="Ex: Treino de CrossFit (BMU), corrida..."></div>
       <div class="full"><label>Calorias gastas (kcal)</label><input type="number" id="calories-burned" placeholder="Ex: 400"></div>
     </div>
-    <button class="qbtn" id="save-activity" style="margin-top:10px; width:100%; font-weight:500;">Salvar Atividades</button>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="qbtn" id="save-activity" style="flex:1; font-weight:500;">Salvar Atividades</button>
+      <button class="qbtn" id="pull-strava" style="flex:1; background:var(--green-soft); color:var(--green); font-weight:500;">📥 Puxar do Strava</button>
+    </div>
   </div>
 
   <div class="progress-card">
@@ -320,7 +323,6 @@
       <div class="status-msg" style="text-align:left;padding:0 0 14px;">As metas de calorias e macros agora são definidas pelo treino do dia, logo no topo da tela.</div>
       <button class="btn-primary" id="save-goals">Salvar metas</button>
       
-      <!-- NOVO BOTÃO DE COMPARTILHAR / ENVIAR POR EMAIL -->
       <button class="btn-primary" id="download-data" style="margin-top: 15px; background: var(--purple);">📤 Compartilhar / Enviar por E-mail</button>
     </div>
   </div>
@@ -336,6 +338,44 @@
 </div>
 
 <script>
+/* ---------- Base de Dados Embutida do Strava (Jun/Ago 2026) ---------- */
+const STRAVA_DATA = {
+  "2026-06-19": { "exercises": "Corrida da tarde", "caloriesBurned": 592 },
+  "2026-06-21": { "exercises": "Longão", "caloriesBurned": 1114 },
+  "2026-06-23": { "exercises": "Lunch HIIT", "caloriesBurned": 471 },
+  "2026-06-24": { "exercises": "Progressivo", "caloriesBurned": 664 },
+  "2026-06-26": { "exercises": "Regenerativo", "caloriesBurned": 610 },
+  "2026-06-28": { "exercises": "Longão", "caloriesBurned": 1110 },
+  "2026-06-29": { "exercises": "Regenerativo", "caloriesBurned": 578 },
+  "2026-07-01": { "exercises": "Evening HIIT + Velocidade 2-1", "caloriesBurned": 909 },
+  "2026-07-03": { "exercises": "Hyrox + Corrida leve", "caloriesBurned": 835 },
+  "2026-07-04": { "exercises": "Desaquecimento + Afternoon Run", "caloriesBurned": 694 },
+  "2026-07-07": { "exercises": "Intervalado em pirâmide", "caloriesBurned": 715 },
+  "2026-07-09": { "exercises": "Intervalado", "caloriesBurned": 669 },
+  "2026-07-10": { "exercises": "Regenerativo  S5", "caloriesBurned": 587 },
+  "2026-07-12": { "exercises": "Longão", "caloriesBurned": 1100 },
+  "2026-07-13": { "exercises": "Simulador de escada ao entardecer", "caloriesBurned": 110 },
+  "2026-07-14": { "exercises": "Evening HIIT + Regenerativo", "caloriesBurned": 1010 },
+  "2026-07-16": { "exercises": "400 m ritmos alternados", "caloriesBurned": 875 },
+  "2026-07-17": { "exercises": "Evening Run", "caloriesBurned": 592 },
+  "2026-07-19": { "exercises": "Longo", "caloriesBurned": 1130 },
+  "2026-07-21": { "exercises": "Tiro + HIIT matinal", "caloriesBurned": 1144 },
+  "2026-07-23": { "exercises": "1 km em ritmos alternados", "caloriesBurned": 874 },
+  "2026-07-24": { "exercises": "7,5km leve", "caloriesBurned": 808 },
+  "2026-07-25": { "exercises": "Morning HIIT", "caloriesBurned": 674 },
+  "2026-07-26": { "exercises": "Longão", "caloriesBurned": 1186 },
+  "2026-07-28": { "exercises": "Deload", "caloriesBurned": 701 },
+  "2026-07-29": { "exercises": "2 milhas contrarrelógio", "caloriesBurned": 650 },
+  "2026-08-02": { "exercises": "Morning Run", "caloriesBurned": 375 },
+  "2026-08-04": { "exercises": "Variado", "caloriesBurned": 544 },
+  "2026-08-06": { "exercises": "500 m no seu máximo", "caloriesBurned": 1185 },
+  "2026-08-11": { "exercises": "O treino mais curto da semana + Cross", "caloriesBurned": 1154 },
+  "2026-08-12": { "exercises": "2 km treino de ritmo repetições", "caloriesBurned": 1121 },
+  "2026-08-14": { "exercises": "Levinho", "caloriesBurned": 717 },
+  "2026-08-16": { "exercises": "Promofarma", "caloriesBurned": 1214 },
+  "2026-08-18": { "exercises": "600 m no seu máximo", "caloriesBurned": 1105 }
+};
+
 /* ---------- Camada de armazenamento com fallback ---------- */
 const HAS_CLAUDE_STORAGE = (typeof window.storage !== 'undefined');
 async function storageGetRaw(key, shared=false){
@@ -522,7 +562,6 @@ async function loadDay(iso){
   if(dayData.steps==null) dayData.steps = 0;
   if(dayData.trainingType==null) dayData.trainingType = '';
   if(dayData.customGoal===undefined) dayData.customGoal = null;
-  // Campos Novos
   if(dayData.exercises==null) dayData.exercises = '';
   if(dayData.caloriesBurned==null) dayData.caloriesBurned = '';
   if(dayData.idade==null) dayData.idade = '';
@@ -606,11 +645,9 @@ function renderHabits(){
   document.getElementById('steps-goal').textContent = goals.steps;
   document.getElementById('steps-bar').style.width = Math.min(100,(dayData.steps/goals.steps)*100||0)+'%';
   
-  // Renderiza Campos de Atividade
   document.getElementById('daily-exercises').value = dayData.exercises || '';
   document.getElementById('calories-burned').value = dayData.caloriesBurned || '';
   
-  // Renderiza Campos de Composição Corporal
   document.getElementById('calc-idade').value = dayData.idade || '';
   document.getElementById('calc-altura').value = dayData.altura || '';
   document.getElementById('calc-pescoco').value = dayData.pescoco || '';
@@ -882,12 +919,26 @@ async function changeDate(delta){
   await loadDay(currentDate); renderAll();
 }
 
-/* ---------- NOVOS EVENTOS (Atividades, Massa Magra, Repetir e Baixar) ---------- */
+/* ---------- Botão Strava / Atividades / Massa Magra / Repetir / Baixar ---------- */
 document.getElementById('save-activity').addEventListener('click', async ()=>{
   dayData.exercises = document.getElementById('daily-exercises').value;
   dayData.caloriesBurned = document.getElementById('calories-burned').value;
   await saveDay(currentDate);
   setStatus('Atividades e gasto salvos.');
+});
+
+// Botão para puxar automaticamente os dados do Strava para a data atual selecionada
+document.getElementById('pull-strava').addEventListener('click', async ()=>{
+  const stravaEntry = STRAVA_DATA[currentDate];
+  if(stravaEntry) {
+    dayData.exercises = stravaEntry.exercises;
+    dayData.caloriesBurned = stravaEntry.caloriesBurned;
+    renderHabits();
+    await saveDay(currentDate);
+    setStatus('Treinos do Strava carregados para este dia!');
+  } else {
+    alert('Nenhum treino registrado no Strava para a data ' + currentDate.split('-').reverse().join('/') + '.');
+  }
 });
 
 document.getElementById('calc-lean-mass').addEventListener('click', async ()=>{
@@ -913,16 +964,13 @@ document.getElementById('calc-lean-mass').addEventListener('click', async ()=>{
     return;
   }
 
-  // Fórmula da Marinha dos EUA (US Navy) para Homens
   const logCinturaPescoco = Math.log10(cintura - pescoco);
   const logAltura = Math.log10(altura);
   let bf = 495 / (1.0324 - 0.19077 * logCinturaPescoco + 0.15456 * logAltura) - 450;
   
-  // Limites de segurança da fórmula
   if (bf < 2) bf = 2;
   if (bf > 60) bf = 60;
 
-  // Salvando no estado do dia
   dayData.idade = idade;
   dayData.altura = altura;
   dayData.pescoco = pescoco;
@@ -949,7 +997,7 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
     }
     
     if(temComida) {
-      dayData.meals = JSON.parse(JSON.stringify(yesterdayData.meals)); // Cópia profunda
+      dayData.meals = JSON.parse(JSON.stringify(yesterdayData.meals));
       renderMeals(); 
       renderProgress(); 
       await saveDay(currentDate);
@@ -962,7 +1010,6 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
   }
 });
 
-// AQUI ESTÁ A CORREÇÃO DE EXPORTAÇÃO USANDO A API DE COMPARTILHAR DO CELULAR
 document.getElementById('download-data').addEventListener('click', async ()=>{
   const allData = { 
     metas: goals, 
@@ -981,11 +1028,8 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
   }
   
   const jsonString = JSON.stringify(allData, null, 2);
-  
-  // Cria o arquivo virtual
   const file = new File([jsonString], "nutridia_resultados.json", { type: "application/json" });
   
-  // Verifica se o celular tem suporte à aba de compartilhamento nativa (iOS/Android)
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
@@ -1000,18 +1044,14 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
     }
   } 
   
-  // Se estiver no computador ou o celular não suportar, faz o download via Blob padrão
   const blob = new Blob([jsonString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  
   const dlAnchorElem = document.createElement('a');
   dlAnchorElem.href = url;
   dlAnchorElem.download = "nutridia_resultados.json";
-  
   document.body.appendChild(dlAnchorElem);
   dlAnchorElem.click();
   document.body.removeChild(dlAnchorElem);
-  
   URL.revokeObjectURL(url);
 });
 
