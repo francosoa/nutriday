@@ -961,6 +961,7 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
   }
 });
 
+// AQUI ESTÁ A CORREÇÃO PARA BAIXAR NO CELULAR
 document.getElementById('download-data').addEventListener('click', async ()=>{
   const allData = { 
     metas: goals, 
@@ -979,11 +980,22 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
     }
   }
   
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData, null, 2));
+  // Utiliza a técnica de Blob para funcionar no celular
+  const jsonString = JSON.stringify(allData, null, 2);
+  const blob = new Blob([jsonString], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  
   const dlAnchorElem = document.createElement('a');
-  dlAnchorElem.setAttribute("href", dataStr);
-  dlAnchorElem.setAttribute("download", "nutridia_completo_resultados.json");
+  dlAnchorElem.href = url;
+  dlAnchorElem.download = "nutridia_completo_resultados.json";
+  
+  // Anexa ao body temporariamente e clica
+  document.body.appendChild(dlAnchorElem);
   dlAnchorElem.click();
+  document.body.removeChild(dlAnchorElem);
+  
+  // Limpa a memória do navegador
+  URL.revokeObjectURL(url);
 });
 
 /* ---------- Inicialização ---------- */
