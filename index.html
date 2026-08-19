@@ -12,7 +12,7 @@
     --bg:#FAF7F2; --surface:#FFFFFF; --ink:#1F2A24; --ink-soft:#5B675F; --line:#E7E1D5;
     --green:#2D4F3C; --green-soft:#E3ECE4; --coral:#E8602C; --coral-soft:#FCE6DA;
     --amber:#F4B942; --amber-soft:#FCF1D9; --blue:#3B6EA5; --blue-soft:#E5EDF5;
-    --purple:#7A6FB0; --purple-soft:#EBE8F5;
+    --purple:#7A6FB0; --purple-soft:#EBE8F5; --indigo:#5C6BC0;
     --radius:14px; --shadow:0 2px 10px rgba(31,42,36,0.06);
   }
   *{box-sizing:border-box;}
@@ -70,6 +70,7 @@
   .habit .track{height:6px;border-radius:3px;background:#EEE9DD;overflow:hidden;margin-bottom:10px;}
   .habit .fill.water{background:var(--blue);height:100%;border-radius:3px;}
   .habit .fill.steps{background:var(--purple);height:100%;border-radius:3px;}
+  .habit .fill.sleep{background:var(--indigo);height:100%;border-radius:3px;}
   .habit-controls{display:flex;align-items:center;gap:8px;}
   .qbtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:var(--ink);}
   .qbtn:active{background:var(--green-soft);}
@@ -223,7 +224,7 @@
       </div>
     </div>
     
-    <!-- Cálculo de Composição Corporal -->
+    <!-- Composição Corporal -->
     <div class="habit">
       <div class="habit-top"><div class="htitle">💪 Composição Corporal</div><div class="hval" id="lean-mass-display">não calculado</div></div>
       <div class="livre-grid" style="margin-bottom:8px;">
@@ -234,6 +235,18 @@
       </div>
       <button class="btn-primary" id="calc-lean-mass" style="padding: 10px; font-size: 13.5px; margin-bottom: 5px;">Calcular Gordura e Massa Magra</button>
       <div class="empty-hint" style="text-align:center; padding-top:0; color:var(--ink-soft);" id="bf-result-display">(Utiliza o peso registrado no card acima)</div>
+    </div>
+
+    <!-- Horas de Sono -->
+    <div class="habit">
+      <div class="habit-top"><div class="htitle">😴 Sono</div><div class="hval"><b id="sleep-val">0</b>/<span id="sleep-goal">8</span> h</div></div>
+      <div class="track"><div class="fill sleep" id="sleep-bar" style="width:0%"></div></div>
+      <div class="habit-controls">
+        <button class="qbtn" data-sleep="-1">-1h</button>
+        <button class="qbtn" data-sleep="1">+1h</button>
+        <input type="number" step="0.5" id="sleep-manual" placeholder="horas">
+        <button class="qbtn" id="sleep-manual-add">add</button>
+      </div>
     </div>
 
     <div class="habit">
@@ -320,7 +333,8 @@
         <div class="form-row"><label>Meta de água (ml)</label><input type="number" id="goal-water"></div>
         <div class="form-row"><label>Meta de passos</label><input type="number" id="goal-steps"></div>
       </div>
-      <div class="status-msg" style="text-align:left;padding:0 0 14px;">As metas de calorias e macros agora são definidas pelo treino do dia, logo no topo da tela.</div>
+      <div class="form-row"><label>Meta de sono (horas)</label><input type="number" id="goal-sleep" step="0.5"></div>
+      <div class="status-msg" style="text-align:left;padding:0 0 14px;">As metas de calorias e macros são definidas pelo treino do dia, no topo da tela.</div>
       <button class="btn-primary" id="save-goals">Salvar metas</button>
       
       <button class="btn-primary" id="download-data" style="margin-top: 15px; background: var(--purple);">📤 Compartilhar / Enviar por E-mail</button>
@@ -510,8 +524,8 @@ const MEAL_TYPES = [
 
 /* ---------- Estado ---------- */
 let currentDate = todayISO();
-let goals = {water:2000, steps:8000, freeDefault:{calories:2000, protein:120, carbs:220, fat:65}};
-let dayData = {meals:{}, weight:null, water:0, steps:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
+let goals = {water:2000, steps:8000, sleep:8, freeDefault:{calories:2000, protein:120, carbs:220, fat:65}};
+let dayData = {meals:{}, weight:null, water:0, steps:0, sleep:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
 let activeMealKey = null;
 let selectedFood = null;
 
@@ -540,7 +554,7 @@ function getDayGoal(){
 /* ---------- Persistência ---------- */
 async function loadGoals(){
   const raw = await storageGetRaw('goals', false);
-  if(raw){ try{ const parsed = JSON.parse(raw); goals = Object.assign(goals, parsed); if(!goals.freeDefault) goals.freeDefault = {calories:2000,protein:120,carbs:220,fat:65}; }catch(e){} }
+  if(raw){ try{ const parsed = JSON.parse(raw); goals = Object.assign(goals, parsed); if(!goals.freeDefault) goals.freeDefault = {calories:2000,protein:120,carbs:220,fat:65}; if(goals.sleep==null) goals.sleep=8; }catch(e){} }
 }
 async function saveGoals(){
   const ok = await storageSetRaw('goals', JSON.stringify(goals), false);
@@ -555,11 +569,12 @@ async function saveCustomFoods(){
 }
 async function loadDay(iso){
   const raw = await storageGetRaw('day:'+iso, false);
-  dayData = raw ? JSON.parse(raw) : {meals:{}, weight:null, water:0, steps:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
+  dayData = raw ? JSON.parse(raw) : {meals:{}, weight:null, water:0, steps:0, sleep:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
   if(!dayData.meals) dayData.meals = {};
   MEAL_TYPES.forEach(m=>{ if(!dayData.meals[m.key]) dayData.meals[m.key]=[]; });
   if(dayData.water==null) dayData.water = 0;
   if(dayData.steps==null) dayData.steps = 0;
+  if(dayData.sleep==null) dayData.sleep = 0;
   if(dayData.trainingType==null) dayData.trainingType = '';
   if(dayData.customGoal===undefined) dayData.customGoal = null;
   if(dayData.exercises==null) dayData.exercises = '';
@@ -638,9 +653,15 @@ function setMacro(prefix,val,goal){
 function renderHabits(){
   document.getElementById('weight-display').textContent = dayData.weight ? dayData.weight+' kg' : 'não registrado';
   document.getElementById('weight-input').value = dayData.weight || '';
+  
+  document.getElementById('sleep-val').textContent = dayData.sleep;
+  document.getElementById('sleep-goal').textContent = goals.sleep;
+  document.getElementById('sleep-bar').style.width = Math.min(100,(dayData.sleep/goals.sleep)*100||0)+'%';
+
   document.getElementById('water-val').textContent = Math.round(dayData.water);
   document.getElementById('water-goal').textContent = goals.water;
   document.getElementById('water-bar').style.width = Math.min(100,(dayData.water/goals.water)*100||0)+'%';
+  
   document.getElementById('steps-val').textContent = Math.round(dayData.steps);
   document.getElementById('steps-goal').textContent = goals.steps;
   document.getElementById('steps-bar').style.width = Math.min(100,(dayData.steps/goals.steps)*100||0)+'%';
@@ -849,22 +870,24 @@ document.getElementById('confirm-add').addEventListener('click', async ()=>{
   await saveDay(currentDate);
 });
 
-/* ---------- Eventos: metas de água/passos ---------- */
+/* ---------- Eventos: metas gerais ---------- */
 document.getElementById('open-goals').addEventListener('click', ()=>{
   document.getElementById('goal-water').value = goals.water;
   document.getElementById('goal-steps').value = goals.steps;
+  document.getElementById('goal-sleep').value = goals.sleep;
   document.getElementById('goals-overlay').classList.add('show');
 });
 document.getElementById('close-goals').addEventListener('click', ()=>document.getElementById('goals-overlay').classList.remove('show'));
 document.getElementById('save-goals').addEventListener('click', async ()=>{
   goals.water = parseFloat(document.getElementById('goal-water').value)||2000;
   goals.steps = parseFloat(document.getElementById('goal-steps').value)||8000;
+  goals.sleep = parseFloat(document.getElementById('goal-sleep').value)||8;
   await saveGoals();
   document.getElementById('goals-overlay').classList.remove('show');
   renderHabits();
 });
 
-/* ---------- Eventos: hábitos (peso, água, passos) ---------- */
+/* ---------- Eventos: hábitos (peso, sono, água, passos) ---------- */
 document.getElementById('save-weight').addEventListener('click', async ()=>{
   const v = parseFloat(document.getElementById('weight-input').value);
   if(isNaN(v) || v<=0) return;
@@ -878,6 +901,18 @@ document.getElementById('view-chart').addEventListener('click', async ()=>{
   document.getElementById('chart-wrap').innerHTML = buildWeightSVG(points);
 });
 document.getElementById('close-weight').addEventListener('click', ()=>document.getElementById('weight-overlay').classList.remove('show'));
+
+document.querySelectorAll('[data-sleep]').forEach(b=>b.addEventListener('click', async ()=>{
+  dayData.sleep = Math.max(0, parseFloat((dayData.sleep + parseFloat(b.dataset.sleep)).toFixed(1)));
+  renderHabits(); await saveDay(currentDate);
+}));
+document.getElementById('sleep-manual-add').addEventListener('click', async ()=>{
+  const v = parseFloat(document.getElementById('sleep-manual').value)||0;
+  if(v===0) return;
+  dayData.sleep = Math.max(0, parseFloat((dayData.sleep + v).toFixed(1)));
+  document.getElementById('sleep-manual').value='';
+  renderHabits(); await saveDay(currentDate);
+});
 
 document.querySelectorAll('[data-water]').forEach(b=>b.addEventListener('click', async ()=>{
   dayData.water = Math.max(0, dayData.water + parseInt(b.dataset.water));
@@ -919,7 +954,7 @@ async function changeDate(delta){
   await loadDay(currentDate); renderAll();
 }
 
-/* ---------- Botão Strava / Atividades / Massa Magra / Repetir / Baixar ---------- */
+/* ---------- Botões auxiliares e Strava ---------- */
 document.getElementById('save-activity').addEventListener('click', async ()=>{
   dayData.exercises = document.getElementById('daily-exercises').value;
   dayData.caloriesBurned = document.getElementById('calories-burned').value;
@@ -927,7 +962,6 @@ document.getElementById('save-activity').addEventListener('click', async ()=>{
   setStatus('Atividades e gasto salvos.');
 });
 
-// Botão para puxar automaticamente os dados do Strava para a data atual selecionada
 document.getElementById('pull-strava').addEventListener('click', async ()=>{
   const stravaEntry = STRAVA_DATA[currentDate];
   if(stravaEntry) {
@@ -943,11 +977,7 @@ document.getElementById('pull-strava').addEventListener('click', async ()=>{
 
 document.getElementById('calc-lean-mass').addEventListener('click', async ()=>{
   const w = dayData.weight;
-  
-  if(!w) { 
-    alert('Por favor, registre e salve o seu peso do dia primeiro (no card acima)!'); 
-    return; 
-  }
+  if(!w) { alert('Por favor, registre e salve o seu peso do dia primeiro (no card acima)!'); return; }
   
   const idade = parseFloat(document.getElementById('calc-idade').value);
   const altura = parseFloat(document.getElementById('calc-altura').value);
@@ -958,7 +988,6 @@ document.getElementById('calc-lean-mass').addEventListener('click', async ()=>{
     alert('Preencha idade, altura, pescoço e cintura corretamente para calcular.');
     return;
   }
-  
   if(cintura <= pescoco) {
     alert('A medida da cintura deve ser maior que a do pescoço.');
     return;
@@ -967,7 +996,6 @@ document.getElementById('calc-lean-mass').addEventListener('click', async ()=>{
   const logCinturaPescoco = Math.log10(cintura - pescoco);
   const logAltura = Math.log10(altura);
   let bf = 495 / (1.0324 - 0.19077 * logCinturaPescoco + 0.15456 * logAltura) - 450;
-  
   if (bf < 2) bf = 2;
   if (bf > 60) bf = 60;
 
@@ -995,11 +1023,9 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
     for(let m in yesterdayData.meals) {
       if(yesterdayData.meals[m].length > 0) temComida = true;
     }
-    
     if(temComida) {
       dayData.meals = JSON.parse(JSON.stringify(yesterdayData.meals));
-      renderMeals(); 
-      renderProgress(); 
+      renderMeals(); renderProgress(); 
       await saveDay(currentDate);
       setStatus('Cardápio de ontem repetido com sucesso!');
     } else {
@@ -1011,20 +1037,13 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
 });
 
 document.getElementById('download-data').addEventListener('click', async ()=>{
-  const allData = { 
-    metas: goals, 
-    alimentos_personalizados: customFoods, 
-    historico_dias: {} 
-  };
-  
+  const allData = { metas: goals, alimentos_personalizados: customFoods, historico_dias: {} };
   const base = new Date();
   for(let i=0; i<365; i++) {
     const d = new Date(base); d.setDate(d.getDate() - i);
     const iso = d.toISOString().slice(0,10);
     const raw = await storageGetRaw('day:' + iso, false);
-    if(raw) {
-      allData.historico_dias[iso] = JSON.parse(raw);
-    }
+    if(raw) { allData.historico_dias[iso] = JSON.parse(raw); }
   }
   
   const jsonString = JSON.stringify(allData, null, 2);
@@ -1039,9 +1058,7 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
       });
       document.getElementById('goals-overlay').classList.remove('show');
       return;
-    } catch (err) {
-      console.log('Compartilhamento cancelado ou falhou:', err);
-    }
+    } catch (err) { console.log('Compartilhamento cancelado:', err); }
   } 
   
   const blob = new Blob([jsonString], { type: "application/json" });
