@@ -220,7 +220,7 @@
       </div>
     </div>
     
-    <!-- Cálculo de Composição Corporal (Massa Magra / Gordura) -->
+    <!-- Cálculo de Composição Corporal -->
     <div class="habit">
       <div class="habit-top"><div class="htitle">💪 Composição Corporal</div><div class="hval" id="lean-mass-display">não calculado</div></div>
       <div class="livre-grid" style="margin-bottom:8px;">
@@ -266,6 +266,7 @@
 
 </div>
 
+<!-- Overlays e Telas Internas -->
 <div class="overlay" id="search-overlay">
   <div class="sheet">
     <div class="sheet-head"><h2 id="search-title">Adicionar alimento</h2><button class="icon-btn" id="close-search">✕</button></div>
@@ -310,7 +311,7 @@
 
 <div class="overlay" id="goals-overlay">
   <div class="sheet">
-    <div class="sheet-head"><h2>Metas de água e passos</h2><button class="icon-btn" id="close-goals">✕</button></div>
+    <div class="sheet-head"><h2>Metas e Exportação</h2><button class="icon-btn" id="close-goals">✕</button></div>
     <div class="sheet-body">
       <div class="goal-grid">
         <div class="form-row"><label>Meta de água (ml)</label><input type="number" id="goal-water"></div>
@@ -319,8 +320,8 @@
       <div class="status-msg" style="text-align:left;padding:0 0 14px;">As metas de calorias e macros agora são definidas pelo treino do dia, logo no topo da tela.</div>
       <button class="btn-primary" id="save-goals">Salvar metas</button>
       
-      <!-- Botão Download de Dados -->
-      <button class="btn-primary" id="download-data" style="margin-top: 10px; background: var(--purple);">Baixar todos os resultados (JSON)</button>
+      <!-- NOVO BOTÃO DE COMPARTILHAR / ENVIAR POR EMAIL -->
+      <button class="btn-primary" id="download-data" style="margin-top: 15px; background: var(--purple);">📤 Compartilhar / Enviar por E-mail</button>
     </div>
   </div>
 </div>
@@ -961,7 +962,7 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
   }
 });
 
-// AQUI ESTÁ A CORREÇÃO PARA BAIXAR NO CELULAR
+// AQUI ESTÁ A CORREÇÃO DE EXPORTAÇÃO USANDO A API DE COMPARTILHAR DO CELULAR
 document.getElementById('download-data').addEventListener('click', async ()=>{
   const allData = { 
     metas: goals, 
@@ -970,7 +971,6 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
   };
   
   const base = new Date();
-  // Varre os últimos 365 dias armazenados e puxa o que achar
   for(let i=0; i<365; i++) {
     const d = new Date(base); d.setDate(d.getDate() - i);
     const iso = d.toISOString().slice(0,10);
@@ -980,21 +980,38 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
     }
   }
   
-  // Utiliza a técnica de Blob para funcionar no celular
   const jsonString = JSON.stringify(allData, null, 2);
+  
+  // Cria o arquivo virtual
+  const file = new File([jsonString], "nutridia_resultados.json", { type: "application/json" });
+  
+  // Verifica se o celular tem suporte à aba de compartilhamento nativa (iOS/Android)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        title: 'Meus Dados - NutriDia',
+        text: 'Segue em anexo o backup dos meus dados do aplicativo NutriDia.',
+        files: [file]
+      });
+      document.getElementById('goals-overlay').classList.remove('show');
+      return;
+    } catch (err) {
+      console.log('Compartilhamento cancelado ou falhou:', err);
+    }
+  } 
+  
+  // Se estiver no computador ou o celular não suportar, faz o download via Blob padrão
   const blob = new Blob([jsonString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   
   const dlAnchorElem = document.createElement('a');
   dlAnchorElem.href = url;
-  dlAnchorElem.download = "nutridia_completo_resultados.json";
+  dlAnchorElem.download = "nutridia_resultados.json";
   
-  // Anexa ao body temporariamente e clica
   document.body.appendChild(dlAnchorElem);
   dlAnchorElem.click();
   document.body.removeChild(dlAnchorElem);
   
-  // Limpa a memória do navegador
   URL.revokeObjectURL(url);
 });
 
