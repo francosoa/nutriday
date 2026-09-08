@@ -104,8 +104,8 @@
   .sheet-head{padding:16px 18px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);}
   .sheet-head h2{font-size:17px;}
   .sheet-body{padding:14px 18px 24px;overflow-y:auto;}
-  input[type=text],input[type=number]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:14.5px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);}
-  input:focus{outline:none;border-color:var(--green);}
+  input[type=text],input[type=number],input[type=date],textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:14.5px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);}
+  input:focus,textarea:focus{outline:none;border-color:var(--green);}
   .results{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow-y:auto;}
   .result-item{padding:11px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--surface);}
   .result-item:active{background:var(--green-soft);}
@@ -199,6 +199,13 @@
       <button class="qbtn" id="save-activity" style="flex:1; font-weight:500;">Salvar Atividades</button>
       <button class="qbtn" id="pull-strava" style="flex:1; background:var(--green-soft); color:var(--green); font-weight:500;">📥 Puxar do Strava</button>
     </div>
+  </div>
+
+  <!-- Comentários do Dia -->
+  <div class="training-card" id="comments-card">
+    <label>Comentários e anotações do dia</label>
+    <textarea id="daily-comments" rows="3" style="resize:vertical;" placeholder="Ex: Viagem de trabalho, leve dor muscular, evento social..."></textarea>
+    <button class="qbtn" id="save-comments" style="margin-top:10px; width:100%; font-weight:500;">Salvar Comentários</button>
   </div>
 
   <div class="progress-card">
@@ -334,10 +341,16 @@
         <div class="form-row"><label>Meta de passos</label><input type="number" id="goal-steps"></div>
       </div>
       <div class="form-row"><label>Meta de sono (horas)</label><input type="number" id="goal-sleep" step="0.5"></div>
-      <div class="status-msg" style="text-align:left;padding:0 0 14px;">As metas de calorias e macros são definidas pelo treino do dia, no topo da tela.</div>
       <button class="btn-primary" id="save-goals">Salvar metas</button>
       
-      <button class="btn-primary" id="download-data" style="margin-top: 15px; background: var(--purple);">📤 Compartilhar / Enviar por E-mail</button>
+      <hr style="border:none; border-top:1px solid var(--line); margin:20px 0;">
+      
+      <h3 style="font-size:15px; margin-bottom:12px;">Exportar Dados por Período</h3>
+      <div class="goal-grid">
+        <div class="form-row"><label>Data inicial</label><input type="date" id="export-start-date"></div>
+        <div class="form-row"><label>Data final</label><input type="date" id="export-end-date"></div>
+      </div>
+      <button class="btn-primary" id="download-data" style="margin-top: 5px; background: var(--purple);">📤 Exportar / Compartilhar por E-mail</button>
     </div>
   </div>
 </div>
@@ -445,68 +458,26 @@ const FOOD_DB = [
 ["Queijo cottage","USDA",98,11.1,3.4,4.3],["Ricota","TACO",140,11.0,3.0,8.0],
 ["Requeijão","TACO",257,9.3,2.6,24.0],["Cream cheese","USDA",342,5.9,5.5,34.0],
 ["Iogurte natural integral","TACO",61,4.0,4.9,3.0],["Iogurte natural desnatado","TACO",41,4.2,5.9,0.2],
-["Iogurte grego natural","USDA",97,9.0,3.6,5.0],["Leite integral","TACO",61,2.9,4.3,3.2],
-["Leite desnatado","TACO",35,3.4,4.9,0.2],["Leite de aveia","USDA",47,1.0,7.0,1.5],
+["Iogurte grego natural","USDA",97,9.0,3.6,5.0],["Leite integral","TACO",61,2.9,4.3,3.2],["Leite desnatado","TACO",35,3.4,4.9,0.2],["Leite de aveia","USDA",47,1.0,7.0,1.5],
 ["Leite de amêndoas","USDA",17,0.6,0.6,1.2],["Whey protein (pó)","USDA",375,80.0,8.0,3.5],
 ["Banana prata","TACO",98,1.3,26.0,0.1],["Banana nanica","TACO",92,1.4,23.8,0.1],
 ["Maçã com casca","TACO",56,0.3,15.2,0.2],["Laranja","TACO",37,1.0,8.9,0.1],
 ["Mamão papaia","TACO",40,0.6,10.4,0.1],["Morango","TACO",30,0.9,6.8,0.3],
-["Abacate","TACO",96,1.2,6.0,8.4],["Manga","TACO",64,0.4,16.7,0.2],
-["Uva","TACO",53,0.7,13.3,0.2],["Melancia","TACO",33,0.9,8.1,0.0],
-["Melão","TACO",29,0.7,7.5,0.1],["Abacaxi","TACO",48,0.9,12.3,0.1],
-["Kiwi","USDA",61,1.1,14.7,0.5],["Pera","TACO",53,0.3,13.8,0.2],
+["Abacate","TACO",96,1.2,6.0,8.4],["Manga","TACO",64,0.4,16.7,0.2],["Uva","TACO",53,0.7,13.3,0.2],["Melancia","TACO",33,0.9,8.1,0.0],
+["Melão","TACO",29,0.7,7.5,0.1],["Abacaxi","TACO",48,0.9,12.3,0.1],["Kiwi","USDA",61,1.1,14.7,0.5],["Pera","TACO",53,0.3,13.8,0.2],
 ["Pêssego","TACO",40,0.7,9.7,0.1],["Goiaba","TACO",54,1.1,12.4,0.4],
 ["Maracujá","TACO",68,2.0,12.3,2.1],["Caqui","TACO",65,0.6,17.0,0.1],
 ["Tangerina","TACO",37,0.9,8.8,0.2],["Acerola","TACO",33,0.9,7.7,0.2],
 ["Coco fresco","TACO",406,3.7,15.2,38.0],["Figo","USDA",74,0.8,19.2,0.3],
-["Alface","TACO",15,1.4,2.4,0.2],["Tomate","TACO",18,1.1,3.1,0.2],
-["Cenoura crua","TACO",34,1.3,7.7,0.2],["Brócolis cozido","TACO",25,2.1,4.4,0.5],
+["Alface","TACO",15,1.4,2.4,0.2],["Tomate","TACO",18,1.1,3.1,0.2],["Cenoura crua","TACO",34,1.3,7.7,0.2],["Brócolis cozido","TACO",25,2.1,4.4,0.5],
 ["Couve refogada","TACO",60,2.0,4.0,4.0],["Couve-flor cozida","TACO",23,1.9,4.3,0.1],
 ["Abobrinha refogada","TACO",21,1.1,4.1,0.5],["Berinjela refogada","TACO",35,0.8,8.3,0.2],
 ["Beterraba cozida","TACO",32,1.3,7.3,0.1],["Pepino","TACO",10,0.6,2.0,0.1],
-["Cebola crua","TACO",39,1.7,8.9,0.1],["Pimentão verde","TACO",21,1.4,4.6,0.1],
-["Pimentão vermelho","TACO",27,1.2,5.9,0.2],["Vagem cozida","TACO",27,1.8,5.6,0.1],
-["Chuchu cozido","TACO",19,0.6,4.5,0.1],["Repolho cru","TACO",24,1.3,5.5,0.1],
-["Espinafre cozido","TACO",17,2.4,2.5,0.3],["Milho verde cozido","TACO",98,3.4,18.7,1.6],
+["Cebola crua","TACO",39,1.7,8.9,0.1],["Pimentão verde","TACO",21,1.4,4.6,0.1],["Pimentão vermelho","TACO",27,1.2,5.9,0.2],["Vagem cozida","TACO",27,1.8,5.6,0.1],
+["Chuchu cozido","TACO",19,0.6,4.5,0.1],["Repolho cru","TACO",24,1.3,5.5,0.1],["Espinafre cozido","TACO",17,2.4,2.5,0.3],["Milho verde cozido","TACO",98,3.4,18.7,1.6],
 ["Ervilha cozida","TACO",73,5.0,12.3,0.5],["Quiabo cozido","TACO",26,2.0,5.0,0.2],
 ["Aspargo cozido","USDA",22,2.4,4.1,0.2],["Rúcula crua","USDA",25,2.6,3.7,0.7],
-["Quinoa cozida","USDA",120,4.4,21.3,1.9],["Lentilha cozida","TACO",93,6.3,16.3,0.5],
-["Grão de bico cozido","TACO",164,8.9,27.4,2.6],["Soja cozida","TACO",173,16.6,9.9,9.0],
-["Amendoim torrado","TACO",606,27.2,20.3,43.9],["Castanha do Pará","TACO",643,14.5,15.1,63.5],
-["Castanha de caju","TACO",570,18.5,29.1,46.3],["Amêndoas","USDA",579,21.2,21.6,49.9],
-["Nozes","USDA",654,15.2,13.7,65.2],["Pistache","USDA",560,20.2,27.2,45.3],
-["Semente de chia","USDA",486,16.5,42.1,30.7],["Semente de linhaça","USDA",534,18.3,28.9,42.2],
-["Azeite de oliva","TACO",884,0.0,0.0,100.0],["Óleo de soja","TACO",884,0.0,0.0,100.0],
-["Manteiga","TACO",760,0.4,0.0,84.0],["Margarina","TACO",596,0.5,0.0,66.0],
-["Pasta de amendoim","USDA",588,25.1,20.0,50.4],["Chocolate amargo 70%","USDA",598,7.8,45.9,42.6],
-["Chocolate ao leite","USDA",535,7.6,59.0,29.7],["Mel","TACO",309,0.4,84.0,0.0],
-["Açúcar refinado","TACO",387,0.0,99.9,0.0],["Geleia de frutas","USDA",250,0.4,65.0,0.1],
-["Batata frita (porção)","TACO",312,3.8,41.0,15.0],["Pizza muçarela (fatia)","TACO",266,11.0,33.0,10.0],
-["Hambúrguer bovino simples","TACO",250,16.0,19.0,12.0],["Hambúrguer completo fast food","USDA",295,16.0,30.0,13.0],
-["Batata frita grande fast food","USDA",333,4.0,42.0,17.0],["Milkshake","USDA",170,3.5,27.0,5.0],
-["Pão de queijo","TACO",364,7.5,40.0,18.0],["Coxinha de frango","TACO",288,9.0,28.0,16.0],
-["Pastel de carne frito","TACO",320,8.5,30.0,18.0],["Pastel de queijo frito","TACO",307,9.0,32.0,16.0],
-["Esfiha de carne","USDA",275,11.0,30.0,12.0],["Empada de frango","USDA",300,8.0,28.0,17.0],
-["Lasanha à bolonhesa","TACO",154,8.0,14.0,7.0],["Strogonoff de frango","USDA",195,14.0,8.0,12.0],
-["Feijoada (porção)","TACO",170,12.0,10.0,9.0],["Farofa","TACO",365,2.0,65.0,11.0],
-["Moqueca de peixe","USDA",140,15.0,5.0,7.0],["Yakisoba","USDA",130,6.0,18.0,4.0],
-["Sushi (peça salmão)","USDA",48,2.7,7.5,0.8],["Sushi (peça atum)","USDA",40,3.5,6.5,0.3],
-["Pão de alho","USDA",330,6.5,38.0,17.0],["Croissant","USDA",406,8.2,45.8,21.0],
-["Sonho (doce)","USDA",340,5.0,42.0,17.0],["Bolo de chocolate","TACO",374,5.0,53.0,16.0],
-["Bolo de cenoura","USDA",360,4.5,52.0,15.0],["Brigadeiro","USDA",405,3.5,55.0,18.0],
-["Sorvete de creme","TACO",207,3.5,22.0,11.0],["Pudim de leite","TACO",156,3.5,24.0,5.0],
-["Biscoito recheado","USDA",480,5.5,68.0,20.0],["Biscoito cream cracker","TACO",432,9.7,72.0,11.7],
-["Torrada integral","USDA",400,12.0,72.0,6.0],["Barra de cereal","USDA",380,6.0,72.0,7.0],
-["Barra de proteína","USDA",350,30.0,35.0,10.0],["Pão integral light","USDA",230,11.0,38.0,3.5],
-["Peito de peru fatiado","USDA",106,17.0,3.0,3.0],["Presunto cozido fatiado","TACO",110,16.0,2.0,4.0],
-["Mortadela fatiada","TACO",269,12.0,4.0,23.0],["Salsicha","TACO",257,13.0,3.0,22.0],
-["Linguiça toscana","TACO",280,15.0,2.0,24.0],["Linguiça calabresa","TACO",295,14.0,2.0,25.0],
-["Cogumelo paris cru","USDA",22,3.1,3.3,0.3],["Azeitona verde","TACO",145,1.0,3.8,15.0],
-["Refrigerante cola","TACO",42,0.0,10.6,0.0],["Refrigerante diet/zero","USDA",1,0.0,0.1,0.0],
-["Suco de laranja natural","TACO",45,0.7,10.4,0.2],["Suco de caixinha (uva)","USDA",60,0.1,15.0,0.0],
-["Água de coco","TACO",22,0.1,5.3,0.1],["Café sem açúcar","TACO",2,0.1,0.3,0.0],
-["Achocolatado em pó","TACO",385,6.5,80.0,3.5],["Cerveja pilsen","TACO",41,0.5,3.2,0.0],
-["Vinho tinto","USDA",85,0.1,2.6,0.0],["Energético (lata)","USDA",45,0.0,11.0,0.0],
+["Quinoa cozida","USDA",120,4.4,21.3,1.9],["Lentilha cozida","TACO",93,6.3,16.3,0.5],["Grão de bico cozido","TACO",164,8.9,27.4,2.6],["Soja cozida","TACO",173,16.6,9.9,9.0],["Amendoim torrado","TACO",606,27.2,20.3,43.9],["Castanha do Pará","TACO",643,14.5,15.1,63.5],["Castanha de caju","TACO",570,18.5,29.1,46.3],["Amêndoas","USDA",579,21.2,21.6,49.9],["Nozes","USDA",654,15.2,13.7,65.2],["Pistache","USDA",560,20.2,27.2,45.3],["Semente de chia","USDA",486,16.5,42.1,30.7],["Semente de linhaça","USDA",534,18.3,28.9,42.2],["Azeite de oliva","TACO",884,0.0,0.0,100.0],["Óleo de soja","TACO",884,0.0,0.0,100.0],["Manteiga","TACO",760,0.4,0.0,84.0],["Margarina","TACO",596,0.5,0.0,66.0],["Pasta de amendoim","USDA",588,25.1,20.0,50.4],["Chocolate amargo 70%","USDA",598,7.8,45.9,42.6],["Chocolate ao leite","USDA",535,7.6,59.0,29.7],["Mel","TACO",309,0.4,84.0,0.0],["Açúcar refinado","TACO",387,0.0,99.9,0.0],["Geleia de frutas","USDA",250,0.4,65.0,0.1],["Batata frita (porção)","TACO",312,3.8,41.0,15.0],["Pizza muçarela (fatia)","TACO",266,11.0,33.0,10.0],["Hambúrguer bovino simples","TACO",250,16.0,19.0,12.0],["Hambúrguer completo fast food","USDA",295,16.0,30.0,13.0],["Batata frita grande fast food","USDA",333,4.0,42.0,17.0],["Milkshake","USDA",170,3.5,27.0,5.0],["Pão de queijo","TACO",364,7.5,40.0,18.0],["Coxinha de frango","TACO",288,9.0,28.0,16.0],["Pastel de carne frito","TACO",320,8.5,30.0,18.0],["Pastel de queijo frito","TACO",307,9.0,32.0,16.0],["Esfiha de carne","USDA",275,11.0,30.0,12.0],["Empada de frango","USDA",300,8.0,28.0,17.0],["Lasanha à bolonhesa","TACO",154,8.0,14.0,7.0],["Strogonoff de frango","USDA",195,14.0,8.0,12.0],["Feijoada (porção)","TACO",170,12.0,10.0,9.0],["Farofa","TACO",365,2.0,65.0,11.0],["Moqueca de peixe","USDA",140,15.0,5.0,7.0],["Yakisoba","USDA",130,6.0,18.0,4.0],["Sushi (peça salmão)","USDA",48,2.7,7.5,0.8],["Sushi (peça atum)","USDA",40,3.5,6.5,0.3],["Pão de alho","USDA",330,6.5,38.0,17.0],["Croissant","USDA",406,8.2,45.8,21.0],["Sonho (doce)","USDA",340,5.0,42.0,17.0],["Bolo de chocolate","TACO",374,5.0,53.0,16.0],["Bolo de cenoura","USDA",360,4.5,52.0,15.0],["Brigadeiro","USDA",405,3.5,55.0,18.0],["Sorvete de creme","TACO",207,3.5,22.0,11.0],["Pudim de leite","TACO",156,3.5,24.0,5.0],["Biscoito recheado","USDA",480,5.5,68.0,20.0],["Biscoito cream cracker","TACO",432,9.7,72.0,11.7],["Torrada integral","USDA",400,12.0,72.0,6.0],["Barra de cereal","USDA",380,6.0,72.0,7.0],["Barra de proteína","USDA",350,30.0,35.0,10.0],["Pão integral light","USDA",230,11.0,38.0,3.5],["Peito de peru fatiado","USDA",106,17.0,3.0,3.0],["Presunto cozido fatiado","TACO",110,16.0,2.0,4.0],["Mortadela fatiada","TACO",269,12.0,4.0,23.0],["Salsicha","TACO",257,13.0,3.0,22.0],["Linguiça toscana","TACO",280,15.0,2.0,24.0],["Linguiça calabresa","TACO",295,14.0,2.0,25.0],["Cogumelo paris cru","USDA",22,3.1,3.3,0.3],["Azeitona verde","TACO",145,1.0,3.8,15.0],["Refrigerante cola","TACO",42,0.0,10.6,0.0],["Refrigerante diet/zero","USDA",1,0.0,0.1,0.0],["Suco de laranja natural","TACO",45,0.7,10.4,0.2],["Suco de caixinha (uva)","USDA",60,0.1,15.0,0.0],["Água de coco","TACO",22,0.1,5.3,0.1],["Café sem açúcar","TACO",2,0.1,0.3,0.0],["Achocolatado em pó","TACO",385,6.5,80.0,3.5],["Cerveja pilsen","TACO",41,0.5,3.2,0.0],["Vinho tinto","USDA",85,0.1,2.6,0.0],["Energético (lata)","USDA",45,0.0,11.0,0.0],
 ];
 const FOODS_BASE = FOOD_DB.map((f,i)=>({ id:'f'+i, name:f[0], source:f[1], kcal:f[2], protein:f[3], carbs:f[4], fat:f[5] }));
 let customFoods = [];
@@ -525,7 +496,7 @@ const MEAL_TYPES = [
 /* ---------- Estado ---------- */
 let currentDate = todayISO();
 let goals = {water:2000, steps:8000, sleep:8, freeDefault:{calories:2000, protein:120, carbs:220, fat:65}};
-let dayData = {meals:{}, weight:null, water:0, steps:0, sleep:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
+let dayData = {meals:{}, weight:null, water:0, steps:0, sleep:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', comments:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
 let activeMealKey = null;
 let selectedFood = null;
 
@@ -569,7 +540,7 @@ async function saveCustomFoods(){
 }
 async function loadDay(iso){
   const raw = await storageGetRaw('day:'+iso, false);
-  dayData = raw ? JSON.parse(raw) : {meals:{}, weight:null, water:0, steps:0, sleep:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
+  dayData = raw ? JSON.parse(raw) : {meals:{}, weight:null, water:0, steps:0, sleep:0, trainingType:'', customGoal:null, exercises:'', caloriesBurned:'', comments:'', idade:'', altura:'', pescoco:'', cintura:'', bodyFat:'', leanMass:''};
   if(!dayData.meals) dayData.meals = {};
   MEAL_TYPES.forEach(m=>{ if(!dayData.meals[m.key]) dayData.meals[m.key]=[]; });
   if(dayData.water==null) dayData.water = 0;
@@ -579,6 +550,7 @@ async function loadDay(iso){
   if(dayData.customGoal===undefined) dayData.customGoal = null;
   if(dayData.exercises==null) dayData.exercises = '';
   if(dayData.caloriesBurned==null) dayData.caloriesBurned = '';
+  if(dayData.comments==null) dayData.comments = '';
   if(dayData.idade==null) dayData.idade = '';
   if(dayData.altura==null) dayData.altura = '';
   if(dayData.pescoco==null) dayData.pescoco = '';
@@ -668,6 +640,7 @@ function renderHabits(){
   
   document.getElementById('daily-exercises').value = dayData.exercises || '';
   document.getElementById('calories-burned').value = dayData.caloriesBurned || '';
+  document.getElementById('daily-comments').value = dayData.comments || '';
   
   document.getElementById('calc-idade').value = dayData.idade || '';
   document.getElementById('calc-altura').value = dayData.altura || '';
@@ -678,7 +651,7 @@ function renderHabits(){
       document.getElementById('lean-mass-display').textContent = dayData.leanMass + ' kg';
       document.getElementById('bf-result-display').textContent = 'Gordura estimada: ' + dayData.bodyFat + '%';
   } else {
-      document.getElementById('lean-mass-display').textContent = 'não calculado';
+      document.getElementById('lean-mass-display').textContent = 'não calculated';
       document.getElementById('bf-result-display').textContent = '(Utiliza o peso registrado no card acima)';
   }
 }
@@ -875,6 +848,8 @@ document.getElementById('open-goals').addEventListener('click', ()=>{
   document.getElementById('goal-water').value = goals.water;
   document.getElementById('goal-steps').value = goals.steps;
   document.getElementById('goal-sleep').value = goals.sleep;
+  document.getElementById('export-start-date').value = currentDate;
+  document.getElementById('export-end-date').value = currentDate;
   document.getElementById('goals-overlay').classList.add('show');
 });
 document.getElementById('close-goals').addEventListener('click', ()=>document.getElementById('goals-overlay').classList.remove('show'));
@@ -954,12 +929,18 @@ async function changeDate(delta){
   await loadDay(currentDate); renderAll();
 }
 
-/* ---------- Botões auxiliares e Strava ---------- */
+/* ---------- Botões auxiliares, Comentários, Strava e Exportação Filtrada ---------- */
 document.getElementById('save-activity').addEventListener('click', async ()=>{
   dayData.exercises = document.getElementById('daily-exercises').value;
   dayData.caloriesBurned = document.getElementById('calories-burned').value;
   await saveDay(currentDate);
   setStatus('Atividades e gasto salvos.');
+});
+
+document.getElementById('save-comments').addEventListener('click', async ()=>{
+  dayData.comments = document.getElementById('daily-comments').value;
+  await saveDay(currentDate);
+  setStatus('Comentários salvos.');
 });
 
 document.getElementById('pull-strava').addEventListener('click', async ()=>{
@@ -1036,24 +1017,53 @@ document.getElementById('copy-yesterday').addEventListener('click', async ()=>{
   }
 });
 
+// Exportação com filtro por data inicial e final
 document.getElementById('download-data').addEventListener('click', async ()=>{
-  const allData = { metas: goals, alimentos_personalizados: customFoods, historico_dias: {} };
-  const base = new Date();
-  for(let i=0; i<365; i++) {
-    const d = new Date(base); d.setDate(d.getDate() - i);
-    const iso = d.toISOString().slice(0,10);
+  const startDateVal = document.getElementById('export-start-date').value;
+  const endDateVal = document.getElementById('export-end-date').value;
+
+  const allData = { 
+    metas: goals, 
+    alimentos_personalizados: customFoods, 
+    periodo_exportado: { inicio: startDateVal || 'não especificado', fim: endDateVal || 'não especificado' },
+    historico_dias: {} 
+  };
+  
+  let dateList = [];
+  if (startDateVal && endDateVal) {
+    let start = new Date(startDateVal + 'T12:00:00');
+    let end = new Date(endDateVal + 'T12:00:00');
+    if (start > end) {
+      alert('A data inicial deve ser anterior ou igual à data final.');
+      return;
+    }
+    let curr = new Date(start);
+    while (curr <= end) {
+      dateList.push(curr.toISOString().slice(0,10));
+      curr.setDate(curr.getDate() + 1);
+    }
+  } else {
+    const base = new Date();
+    for(let i=0; i<365; i++) {
+      const d = new Date(base); d.setDate(d.getDate() - i);
+      dateList.push(d.toISOString().slice(0,10));
+    }
+  }
+
+  for(let iso of dateList) {
     const raw = await storageGetRaw('day:' + iso, false);
     if(raw) { allData.historico_dias[iso] = JSON.parse(raw); }
   }
   
   const jsonString = JSON.stringify(allData, null, 2);
-  const file = new File([jsonString], "nutridia_resultados.json", { type: "application/json" });
+  const fileName = `nutridia_export_${startDateVal || 'completo'}_a_${endDateVal || 'completo'}.json`;
+  const file = new File([jsonString], fileName, { type: "application/json" });
   
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
         title: 'Meus Dados - NutriDia',
-        text: 'Segue em anexo o backup dos meus dados do aplicativo NutriDia.',
+        text: 'Segue em anexo o relatório exportado do aplicativo NutriDia.',
         files: [file]
       });
       document.getElementById('goals-overlay').classList.remove('show');
@@ -1065,7 +1075,7 @@ document.getElementById('download-data').addEventListener('click', async ()=>{
   const url = URL.createObjectURL(blob);
   const dlAnchorElem = document.createElement('a');
   dlAnchorElem.href = url;
-  dlAnchorElem.download = "nutridia_resultados.json";
+  dlAnchorElem.download = fileName;
   document.body.appendChild(dlAnchorElem);
   dlAnchorElem.click();
   document.body.removeChild(dlAnchorElem);
